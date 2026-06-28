@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import io
 import sys
 from pathlib import Path
 
@@ -52,17 +53,16 @@ try:
     col1.metric("Desde", str(parsed["fecha_ini"]))
     col2.metric("Hasta", str(parsed["fecha_fin"]))
 
-    # Mostrar resumen del calendario
     cal = parsed["calendario"]
     primer_dia = parsed["fecha_ini"]
-    vals_primer_dia = cal[cal["FECHA"] == primer_dia].set_index("ATRIBUTO")["VALOR"]
+    vals = cal[cal["FECHA"] == primer_dia].set_index("ATRIBUTO")["VALOR"]
 
     st.write("**Valores del primer día:**")
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Producto",   str(vals_primer_dia.get("PRODUCTO",  "—")))
-    col2.metric("Tarifa ATR", str(vals_primer_dia.get("TARIFATR",  "—")))
-    col3.metric("Geozona",    str(vals_primer_dia.get("GEOZONA",   "—")))
-    col4.metric("Versión",    str(vals_primer_dia.get("VERSION",   "—")))
+    col1.metric("Producto",   str(vals.get("PRODUCTO",  "—")))
+    col2.metric("Tarifa ATR", str(vals.get("TARIFATR",  "—")))
+    col3.metric("Geozona",    str(vals.get("GEOZONA",   "—")))
+    col4.metric("Versión",    str(vals.get("VERSION",   "—")))
 
     if st.button("🚀 Calcular", type="primary"):
         with st.spinner("Calculando..."):
@@ -81,18 +81,33 @@ try:
 
         # Detalle con filtro
         st.subheader("Detalle completo")
-        atributos = ["Todos"] + sorted(resultado["ATRIBUTO"].unique().tolist())
-        atr_sel   = st.selectbox("Filtrar por atributo", atributos)
+        atributos  = ["Todos"] + sorted(resultado["ATRIBUTO"].unique().tolist())
+        atr_sel    = st.selectbox("Filtrar por atributo", atributos)
         df_mostrar = resultado if atr_sel == "Todos" else resultado[resultado["ATRIBUTO"] == atr_sel]
         st.dataframe(df_mostrar.head(1000), use_container_width=True)
 
-        # Descarga
+        # --- Descarga ---
+        st.subheader("Descargar resultado")
+        col1, col2 = st.columns(2)
+
+        # CSV
         csv = resultado.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="⬇️ Descargar resultado CSV",
+        col1.download_button(
+            label="⬇️ Descargar CSV",
             data=csv,
             file_name="resultado_calculo.csv",
             mime="text/csv"
+        )
+
+        # Excel
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            resultado.to_excel(writer, index=False, sheet_name="RESULTADO")
+        col2.download_button(
+            label="⬇️ Descargar Excel",
+            data=buffer.getvalue(),
+            file_name="resultado_calculo.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
 except ValueError as e:
