@@ -36,20 +36,37 @@ def load_all(excel_path=None) -> dict:
 
     tables = {}
 
+    # Catálogo de productos
     tables["ZFA_T_PRODUCTOS"] = _read(src, "ZFA_T_PRODUCTOS").set_index("PRODUCTO")
+
+    # Conceptos de facturación
     tables["ZFA_T_TARIFAS"] = _read(src, "ZFA_T_TARIFAS").set_index("TARIFA_PRECIO")
+
+    # Atributos de precio
     tables["ZFA_T_ATRIBUTOS"] = _read(src, "ZFA_T_ATRIBUTOS").set_index("ATRIBUTO")
+
+    # Matriz producto → concepto → atributo
     tables["ZFA_T_PROD_ATRIB"] = _read(src, "ZFA_T_PROD_ATRIB")
+
+    # Precios base comerciales
     tables["ZFA_T_MATRIZ_PRB"] = _read(src, "ZFA_T_MATRIZ_PRB").set_index(
         ["PAIS", "TIPO_ENERGIA", "TIPO_PRODUCTO", "TARIFA_ACCESO", "VERSION", "VENTANA", "ATRIBUTO"]
     )
+
+    # Mapping atributo regulado → código precio regulado
     tables["ZFA_T_MATRIZ_REG"] = _read(src, "ZFA_T_MATRIZ_REG").set_index(
         ["PAIS", "TIPO_ENERGIA", "TARIFA_ACCESO", "ATRIBUTO"]
     )
+
+    # Serie histórica de precios regulados
     tables["EPREIH"] = _read(src, "EPREIH")
+
+    # Perfiles de consumo de referencia
     tables["ZFA_T_PERFILES"] = _read(src, "ZFA_T_PERFILES").set_index(
         ["INDICE", "TARIFA_ATR", "GEOZONA"]
     )
+
+    # Curvas cuarto-horarias
     tables["EPROFVAL15"] = _read(src, "EPROFVAL15").set_index(["PROFILE", "VALUEDAY"])
 
     return tables
@@ -63,6 +80,10 @@ def load_input(excel_path=None) -> pd.DataFrame:
     return pd.read_excel(src, sheet_name="INPUT")
 
 
+# ---------------------------------------------------------------------------
+# RESOLUCIÓN DE PRECIO REGULADO
+# ---------------------------------------------------------------------------
+
 def get_precio_regulado(tables: dict, preis: str, fecha) -> float | None:
     df = tables["EPREIH"]
     ts = pd.Timestamp(fecha)
@@ -70,6 +91,10 @@ def get_precio_regulado(tables: dict, preis: str, fecha) -> float | None:
     resultado = df.loc[mask, "PREISBTR"]
     return float(resultado.iloc[0]) if not resultado.empty else None
 
+
+# ---------------------------------------------------------------------------
+# RESOLUCIÓN DE PRECIO BASE
+# ---------------------------------------------------------------------------
 
 def get_precio_base(
     tables: dict,
@@ -103,7 +128,12 @@ def get_precio_base(
     return _get(float("nan"))
 
 
+# ---------------------------------------------------------------------------
+# ATRIBUTOS DE UN PRODUCTO PARA UN CONCEPTO
+# ---------------------------------------------------------------------------
+
 def get_atributos_producto(tables: dict, producto: str, tarifa_precio: str) -> pd.DataFrame:
     df = tables["ZFA_T_PROD_ATRIB"]
     resultado = df[(df["PRODUCTO"] == producto) & (df["TARIFA_PRECIO"] == tarifa_precio)]
     return resultado.reset_index(drop=True)
+
