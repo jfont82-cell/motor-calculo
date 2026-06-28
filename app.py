@@ -10,12 +10,11 @@ from engine import parse_input, calcular
 st.set_page_config(page_title="Motor de Cálculo", layout="wide")
 st.title("⚡ Motor de Cálculo de Precios")
 
-# --- Carga de tablas de configuración ---
+# --- 1. Excel de configuración ---
 st.subheader("1. Sube el Excel de configuración (BBDD)")
 fichero_bbdd = st.file_uploader(
     "Excel con las tablas de configuración (MOTOR_CALCULO.xlsx)",
-    type=["xlsx"],
-    key="bbdd"
+    type=["xlsx"], key="bbdd"
 )
 
 if not fichero_bbdd:
@@ -31,15 +30,13 @@ try:
     st.success("✅ Tablas de configuración cargadas correctamente")
 except Exception as e:
     st.error(f"❌ Error cargando configuración: {e}")
-    st.exception(e)
     st.stop()
 
-# --- Upload del INPUT ---
+# --- 2. INPUT del contrato ---
 st.subheader("2. Sube el fichero INPUT del contrato")
 fichero_input = st.file_uploader(
     "Excel con el INPUT del contrato",
-    type=["xlsx"],
-    key="input"
+    type=["xlsx"], key="input"
 )
 
 if not fichero_input:
@@ -48,36 +45,44 @@ if not fichero_input:
 
 try:
     df_input = pd.read_excel(fichero_input, sheet_name="INPUT")
-    contrato = parse_input(df_input)
+    parsed   = parse_input(df_input)
 
-    st.write("**Datos del contrato:**")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Producto", contrato["PRODUCTO"])
-    col2.metric("Tarifa ATR", contrato["TARIFATR"])
-    col3.metric("Geozona", contrato["GEOZONA"])
-    col1.metric("Desde", str(contrato["CALC_INI"]))
-    col2.metric("Hasta", str(contrato["CALC_FIN"]))
-    col3.metric("Versión", contrato["VERSION"])
+    st.write("**Periodo de cálculo:**")
+    col1, col2 = st.columns(2)
+    col1.metric("Desde", str(parsed["fecha_ini"]))
+    col2.metric("Hasta", str(parsed["fecha_fin"]))
+
+    # Mostrar resumen del calendario
+    cal = parsed["calendario"]
+    primer_dia = parsed["fecha_ini"]
+    vals_primer_dia = cal[cal["FECHA"] == primer_dia].set_index("ATRIBUTO")["VALOR"]
+
+    st.write("**Valores del primer día:**")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Producto",   str(vals_primer_dia.get("PRODUCTO",  "—")))
+    col2.metric("Tarifa ATR", str(vals_primer_dia.get("TARIFATR",  "—")))
+    col3.metric("Geozona",    str(vals_primer_dia.get("GEOZONA",   "—")))
+    col4.metric("Versión",    str(vals_primer_dia.get("VERSION",   "—")))
 
     if st.button("🚀 Calcular", type="primary"):
         with st.spinner("Calculando..."):
-            resultado = calcular(tables, contrato)
+            resultado = calcular(tables, parsed)
 
         st.success(f"✅ {len(resultado):,} filas calculadas")
 
         # Resumen por atributo
         st.subheader("Resumen por atributo")
         resumen = resultado[resultado["PRECIO_FINAL"] != 0].groupby("ATRIBUTO").agg(
-            PRECIO_MEDIO=("PRECIO", "mean"),
+            PRECIO_MEDIO      =("PRECIO",       "mean"),
             PRECIO_FINAL_MEDIO=("PRECIO_FINAL", "mean"),
-            FILAS=("PRECIO_FINAL", "count")
+            FILAS             =("PRECIO_FINAL", "count")
         ).round(6)
         st.dataframe(resumen, use_container_width=True)
 
-        # Detalle completo
+        # Detalle con filtro
         st.subheader("Detalle completo")
         atributos = ["Todos"] + sorted(resultado["ATRIBUTO"].unique().tolist())
-        atr_sel = st.selectbox("Filtrar por atributo", atributos)
+        atr_sel   = st.selectbox("Filtrar por atributo", atributos)
         df_mostrar = resultado if atr_sel == "Todos" else resultado[resultado["ATRIBUTO"] == atr_sel]
         st.dataframe(df_mostrar.head(1000), use_container_width=True)
 
@@ -90,6 +95,8 @@ try:
             mime="text/csv"
         )
 
+except ValueError as e:
+    st.error(f"❌ Error de validación: {e}")
 except Exception as e:
-    st.error(f"❌ Error: {e}")
+    st.error(f"❌ Error inesperado: {e}")
     st.exception(e)
