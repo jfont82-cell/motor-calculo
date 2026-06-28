@@ -67,7 +67,11 @@ try:
     if st.button("🚀 Calcular", type="primary"):
         with st.spinner("Calculando..."):
             resultado = calcular(tables, parsed)
+        st.session_state["resultado"] = resultado
 
+    # Mostrar resultado si existe en session_state
+    if "resultado" in st.session_state:
+        resultado = st.session_state["resultado"]
         st.success(f"✅ {len(resultado):,} filas calculadas")
 
         # Resumen por atributo
@@ -86,35 +90,33 @@ try:
         df_mostrar = resultado if atr_sel == "Todos" else resultado[resultado["ATRIBUTO"] == atr_sel]
         st.dataframe(df_mostrar.head(1000), use_container_width=True)
 
-        # --- Descarga ---
+        # Descarga
         st.subheader("Descargar resultado")
-        col1, col2 = st.columns(2)
 
         # CSV
         csv = resultado.to_csv(index=False).encode("utf-8")
-        col1.download_button(
+        st.download_button(
             label="⬇️ Descargar CSV",
             data=csv,
             file_name="resultado_calculo.csv",
-            mime="text/csv"
+            mime="text/csv",
+            key="dl_csv"
         )
 
         # Excel
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
             resultado.to_excel(writer, index=False, sheet_name="RESULTADO")
-        col2.download_button(
+        st.download_button(
             label="⬇️ Descargar Excel",
             data=buffer.getvalue(),
             file_name="resultado_calculo.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="dl_xlsx"
         )
 
 except ValueError as e:
     st.error(f"❌ Error de validación: {e}")
 except Exception as e:
-    st.error(f"❌ Error inesperado: {e}")
-    st.exception(e)
-
     st.error(f"❌ Error inesperado: {e}")
     st.exception(e)
