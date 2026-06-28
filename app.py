@@ -69,12 +69,17 @@ try:
             resultado = calcular(tables, parsed)
         st.session_state["resultado"] = resultado
 
-    # Mostrar resultado si existe en session_state
     if "resultado" in st.session_state:
         resultado = st.session_state["resultado"]
         st.success(f"✅ {len(resultado):,} filas calculadas")
 
-        # Resumen por atributo
+        # --- Tabla compacta ---
+        resumen_precio = resultado.groupby(
+            ["PRODUCTO", "TARIFA_ACCESO", "PROF_DATE", "PROF_TIME"],
+            as_index=False
+        ).agg(PRECIO_FINAL_TOTAL=("PRECIO_FINAL", "sum"))
+
+        # --- Resumen por atributo ---
         st.subheader("Resumen por atributo")
         resumen = resultado[resultado["PRECIO_FINAL"] != 0].groupby("ATRIBUTO").agg(
             PRECIO_MEDIO      =("PRECIO",       "mean"),
@@ -83,36 +88,41 @@ try:
         ).round(6)
         st.dataframe(resumen, use_container_width=True)
 
-        # Detalle con filtro
+        # --- Tabla compacta en pantalla ---
+        st.subheader("Precio compactado (suma por fecha/hora)")
+        st.dataframe(resumen_precio.head(1000), use_container_width=True)
+
+        # --- Detalle completo ---
         st.subheader("Detalle completo")
         atributos  = ["Todos"] + sorted(resultado["ATRIBUTO"].unique().tolist())
         atr_sel    = st.selectbox("Filtrar por atributo", atributos)
         df_mostrar = resultado if atr_sel == "Todos" else resultado[resultado["ATRIBUTO"] == atr_sel]
         st.dataframe(df_mostrar.head(1000), use_container_width=True)
 
-        # Descarga
+        # --- Descargas ---
         st.subheader("Descargar resultado")
 
-        # CSV
+        # Excel con dos pestañas
+        buffer_xlsx = io.BytesIO()
+        with pd.ExcelWriter(buffer_xlsx, engine="openpyxl") as writer:
+            resumen_precio.to_excel(writer, index=False, sheet_name="PRECIO_COMPACTO")
+            resultado.to_excel(writer, index=False, sheet_name="DETALLE")
+        st.download_button(
+            label="⬇️ Descargar Excel (compacto + detalle)",
+            data=buffer_xlsx.getvalue(),
+            file_name="resultado_calculo.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="dl_xlsx"
+        )
+
+        # CSV detalle
         csv = resultado.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="⬇️ Descargar CSV",
+            label="⬇️ Descargar CSV (detalle)",
             data=csv,
             file_name="resultado_calculo.csv",
             mime="text/csv",
             key="dl_csv"
-        )
-
-        # Excel
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-            resultado.to_excel(writer, index=False, sheet_name="RESULTADO")
-        st.download_button(
-            label="⬇️ Descargar Excel",
-            data=buffer.getvalue(),
-            file_name="resultado_calculo.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="dl_xlsx"
         )
 
 except ValueError as e:
@@ -120,3 +130,4 @@ except ValueError as e:
 except Exception as e:
     st.error(f"❌ Error inesperado: {e}")
     st.exception(e)
+    
