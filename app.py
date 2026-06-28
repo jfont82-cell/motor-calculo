@@ -115,3 +115,6 @@ except ValueError as e:
 except Exception as e:
     st.error(f"❌ Error inesperado: {e}")
     st.exception(e)
+
+    st.error(f"❌ Error inesperado: {e}")
+    st.exception(e)
