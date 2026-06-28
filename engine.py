@@ -7,7 +7,7 @@ Granularidad determinada por la TARIFA (ZFA_T_TARIFAS.INDEXADO):
   - Tarifa INDEXADO=X  → todos sus atributos generan 96 filas/día (cuarto-horario)
       · Atributo indexado     → 96 valores distintos (OMIE, pérdidas...)
       · Atributo no indexado  → 96 filas con el mismo valor repetido
-  - Tarifa sin INDEXADO → 1 fila/día, PROF_TIME = 00:00:00
+  - Tarifa sin INDEXADO → 1 fila/día, PROF_TIME = 00:00:00 
 """
 
 import math
