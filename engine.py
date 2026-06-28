@@ -158,10 +158,14 @@ def get_segmentos(parsed: dict) -> list[dict]:
                 atr = row["ATRIBUTO"]
                 if atr not in ("PRODUCTO", "TARIFATR", "GEOZONA", "VERSION",
                                "VENTANA", "VENTANA_C1"):
-                    try:
-                        vals_dia[atr] = float(row["VALOR"]) if pd.notna(row["VALOR"]) else 0.0
-                    except (TypeError, ValueError):
+                    val_raw = row["VALOR"]
+                    if pd.isna(val_raw):
                         vals_dia[atr] = 0.0
+                    else:
+                        try:
+                            vals_dia[atr] = float(val_raw)
+                        except (TypeError, ValueError):
+                            vals_dia[atr] = val_raw
             atrs_com[f] = vals_dia
 
         # VENTANA: puede variar pero la tomamos del primer día del segmento
