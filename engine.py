@@ -433,6 +433,10 @@ def calcular_segmento(tables: dict, seg: dict) -> pd.DataFrame:
         es_portador       = atrib_fatomic is not None
         multiplicador     = 0.0 if es_portador else 100.0
 
+        # PERIODO del atributo (puede ser NaN = sin dependencia de periodo)
+        atr_periodo_raw = atr_info.get("PERIODO")
+        atr_periodo = None if pd.isna(atr_periodo_raw) else int(atr_periodo_raw)
+
         if tarifa_indexada:
             n      = n_qh
             fechas = fechas_qh
@@ -478,6 +482,20 @@ def calcular_segmento(tables: dict, seg: dict) -> pd.DataFrame:
             tasa_arr         = np.full(n, tasa_mun_valor) if flag_tasa == "X" else np.zeros(n)
             inc_tasas        = inc_tasas_valor if flag_tasa == "X" else 0.0
             apunt_arr        = np.zeros(n)
+
+            # Filtro de periodo: si el atributo tiene PERIODO informado,
+            # solo se incluyen los cuartos-hora donde el periodo coincide
+            if atr_periodo is not None:
+                mask_periodo = (periodos_serie == atr_periodo)
+                if not mask_periodo.any():
+                    continue  # ningún cuarto-hora de este periodo → saltar atributo
+                fechas = fechas_qh[mask_periodo]
+                horas  = horas_qh[mask_periodo]
+                precio_arr       = precio_arr[mask_periodo]
+                perdidas_arr     = perdidas_arr[mask_periodo]
+                inc_perdidas_arr = inc_perdidas_arr[mask_periodo]
+                tasa_arr         = tasa_arr[mask_periodo]
+                apunt_arr        = apunt_arr[mask_periodo]
 
         else:
             n      = n_dia
