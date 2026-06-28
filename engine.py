@@ -560,6 +560,25 @@ def calcular_segmento(tables: dict, seg: dict) -> pd.DataFrame:
             precio_max=0.0,
         )
 
+        # Resolver PERIODO para cada fila
+        if tarifa_indexada:
+            if atr_periodo is not None:
+                # Atributo con periodo fijo → todas las filas tienen ese periodo
+                periodo_arr = np.full(len(fechas), float(atr_periodo))
+            else:
+                # Sin dependencia de periodo → rellenar con el perfil E_PERIODOS
+                periodo_arr = periodos_serie[:len(fechas)].astype(float) if len(periodos_serie) >= len(fechas) else np.zeros(len(fechas))
+                # Si hay filtro de periodo aplicado, ya tenemos las fechas filtradas
+                # pero periodos_serie tiene el tamaño original → usar mask
+                if atr_periodo is None and len(fechas) == n_qh:
+                    periodo_arr = periodos_serie.astype(float)
+                elif atr_periodo is None:
+                    periodo_arr = np.full(len(fechas), float(atr_periodo) if atr_periodo else 0.0)
+        else:
+            tar_periodo_raw = tarifa_info.get("PERIODO")
+            tar_periodo = None if pd.isna(tar_periodo_raw) else float(tar_periodo_raw)
+            periodo_arr = np.full(len(fechas), tar_periodo if tar_periodo else 0.0)
+
         all_dfs.append(pd.DataFrame({
             "PRODUCTO":            producto,
             "TARIFA_PRECIO":       tarifa_precio,
@@ -573,6 +592,7 @@ def calcular_segmento(tables: dict, seg: dict) -> pd.DataFrame:
             "VENTANA":             vent,
             "GEOZONA":             geozona,
             "EXCLUIR":             excluir,
+            "PERIODO":             periodo_arr,
             "PREIS":               preis_val,
             "PERFIL":              perfil_num,
             "ATRIB_FATOMIC":       atrib_fatomic,
@@ -654,3 +674,4 @@ if __name__ == "__main__":
         print(f"\n  Filas comparadas : {len(merged):,}")
         print(f"  Match exacto     : {(diff < 1e-5).sum():,} / {len(merged):,}  ({(diff<1e-5).mean()*100:.1f}%)")
         print(f"  MAE              : {diff.mean():.8f}")
+
