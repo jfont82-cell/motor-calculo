@@ -22,7 +22,13 @@ def load_all(excel_path=None) -> dict:
     """
     Carga todas las tablas de configuración en un diccionario de DataFrames.
     """
-    path = Path(excel_path) if excel_path else EXCEL_PATH
+  if excel_path is None:
+    path = EXCEL_PATH
+elif hasattr(excel_path, 'read'):
+    import io
+    path = excel_path
+else:
+    path = Path(excel_path)
     tables = {}
 
     # Catálogo de productos
