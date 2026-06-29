@@ -81,7 +81,7 @@ try:
 
         # Tabla compacta
         resumen_precio = resultado.groupby(
-            ["PRODUCTO", "TARIFA_ACCESO", "PROF_DATE", "PROF_TIME"],
+            ["PRODUCTO", "TARIFA_PRECIO", "ATRIBUTO", "PROF_DATE", "PROF_TIME"],
             as_index=False
         ).agg(PRECIO_FINAL_TOTAL=("PRECIO_FINAL", "sum"))
 
@@ -134,4 +134,3 @@ except ValueError as e:
 except Exception as e:
     st.error(f"❌ Error inesperado: {e}")
     st.exception(e)
-    
