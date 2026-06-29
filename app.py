@@ -81,31 +81,9 @@ try:
 
         # Tabla compacta
         resumen_precio = resultado.groupby(
-            ["PRODUCTO", "TARIFA_PRECIO", "ATRIBUTO", "PROF_DATE", "PROF_TIME"],
+            ["PRODUCTO", "TARIFA_PRECIO", "PROF_DATE", "PROF_TIME"],
             as_index=False
         ).agg(PRECIO_FINAL_TOTAL=("PRECIO_FINAL", "sum"))
-
-        # Descargas — arriba para que sean visibles inmediatamente
-        st.subheader("Descargar resultado")
-        buffer_xlsx = io.BytesIO()
-        with pd.ExcelWriter(buffer_xlsx, engine="openpyxl") as writer:
-            resumen_precio.to_excel(writer, index=False, sheet_name="PRECIO_COMPACTO")
-            resultado.to_excel(writer, index=False, sheet_name="DETALLE")
-        st.download_button(
-            label="⬇️ Descargar Excel (compacto + detalle)",
-            data=buffer_xlsx.getvalue(),
-            file_name="resultado_calculo.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="dl_xlsx"
-        )
-        csv = resultado.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="⬇️ Descargar CSV (detalle)",
-            data=csv,
-            file_name="resultado_calculo.csv",
-            mime="text/csv",
-            key="dl_csv"
-        )
 
         # Resumen por atributo
         st.subheader("Resumen por atributo")
@@ -126,6 +104,36 @@ try:
         atr_sel    = st.selectbox("Filtrar por atributo", atributos)
         df_mostrar = resultado if atr_sel == "Todos" else resultado[resultado["ATRIBUTO"] == atr_sel]
         st.dataframe(df_mostrar.head(1000), use_container_width=True)
+
+        # Descargas — solo se generan al pulsar el botón
+        st.subheader("Descargar resultado")
+
+        if st.button("📦 Preparar ficheros de descarga"):
+            with st.spinner("Generando ficheros..."):
+                # Excel
+                buf = io.BytesIO()
+                with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+                    resumen_precio.to_excel(writer, index=False, sheet_name="PRECIO_COMPACTO")
+                    resultado.to_excel(writer, index=False, sheet_name="DETALLE")
+                st.session_state["excel_bytes"] = buf.getvalue()
+                # CSV
+                st.session_state["csv_bytes"] = resultado.to_csv(index=False).encode("utf-8")
+
+        if "excel_bytes" in st.session_state:
+            st.download_button(
+                label="⬇️ Descargar Excel (compacto + detalle)",
+                data=st.session_state["excel_bytes"],
+                file_name="resultado_calculo.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="dl_xlsx"
+            )
+            st.download_button(
+                label="⬇️ Descargar CSV (detalle)",
+                data=st.session_state["csv_bytes"],
+                file_name="resultado_calculo.csv",
+                mime="text/csv",
+                key="dl_csv"
+            )
 
 except ValueError as e:
     st.error(f"❌ Error de validación: {e}")
