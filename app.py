@@ -12,23 +12,29 @@ st.set_page_config(page_title="Motor de Cálculo", layout="wide")
 st.title("⚡ Motor de Cálculo de Precios")
 
 # --- 1. Excel de configuración ---
-st.subheader("1. Sube el Excel de configuración (BBDD)")
-fichero_bbdd = st.file_uploader(
-    "Excel con las tablas de configuración (MOTOR_CALCULO.xlsx)",
-    type=["xlsx"], key="bbdd"
-)
+st.subheader("1. Configuración (BBDD)")
 
-if not fichero_bbdd:
-    st.info("Sube primero el Excel de configuración para continuar.")
-    st.stop()
+BBDD_DEFAULT = Path(__file__).parent / "MOTOR_CALCULO.xlsx"
+
+with st.expander("🔄 Actualizar Excel de configuración (opcional)"):
+    fichero_bbdd = st.file_uploader(
+        "Sube un nuevo Excel para reemplazar la configuración actual",
+        type=["xlsx"], key="bbdd"
+    )
 
 @st.cache_resource
-def cargar_tablas(fichero):
-    return load_all(fichero)
+def cargar_tablas(fichero=None):
+    if fichero is not None:
+        return load_all(fichero)
+    return load_all(BBDD_DEFAULT)
 
 try:
-    tables = cargar_tablas(fichero_bbdd)
-    st.success("✅ Tablas de configuración cargadas correctamente")
+    if "bbdd" in st.session_state and st.session_state["bbdd"] is not None:
+        tables = cargar_tablas(st.session_state["bbdd"])
+        st.success("✅ Configuración cargada desde fichero subido")
+    else:
+        tables = cargar_tablas()
+        st.success(f"✅ Configuración cargada automáticamente ({BBDD_DEFAULT.name})")
 except Exception as e:
     st.error(f"❌ Error cargando configuración: {e}")
     st.stop()
@@ -73,13 +79,13 @@ try:
         resultado = st.session_state["resultado"]
         st.success(f"✅ {len(resultado):,} filas calculadas")
 
-        # --- Tabla compacta ---
+        # Tabla compacta
         resumen_precio = resultado.groupby(
             ["PRODUCTO", "TARIFA_ACCESO", "PROF_DATE", "PROF_TIME"],
             as_index=False
         ).agg(PRECIO_FINAL_TOTAL=("PRECIO_FINAL", "sum"))
 
-        # --- Resumen por atributo ---
+        # Resumen por atributo
         st.subheader("Resumen por atributo")
         resumen = resultado[resultado["PRECIO_FINAL"] != 0].groupby("ATRIBUTO").agg(
             PRECIO_MEDIO      =("PRECIO",       "mean"),
@@ -88,21 +94,20 @@ try:
         ).round(6)
         st.dataframe(resumen, use_container_width=True)
 
-        # --- Tabla compacta en pantalla ---
+        # Precio compactado
         st.subheader("Precio compactado (suma por fecha/hora)")
         st.dataframe(resumen_precio.head(1000), use_container_width=True)
 
-        # --- Detalle completo ---
+        # Detalle completo
         st.subheader("Detalle completo")
         atributos  = ["Todos"] + sorted(resultado["ATRIBUTO"].unique().tolist())
         atr_sel    = st.selectbox("Filtrar por atributo", atributos)
         df_mostrar = resultado if atr_sel == "Todos" else resultado[resultado["ATRIBUTO"] == atr_sel]
         st.dataframe(df_mostrar.head(1000), use_container_width=True)
 
-        # --- Descargas ---
+        # Descargas
         st.subheader("Descargar resultado")
 
-        # Excel con dos pestañas
         buffer_xlsx = io.BytesIO()
         with pd.ExcelWriter(buffer_xlsx, engine="openpyxl") as writer:
             resumen_precio.to_excel(writer, index=False, sheet_name="PRECIO_COMPACTO")
@@ -115,7 +120,6 @@ try:
             key="dl_xlsx"
         )
 
-        # CSV detalle
         csv = resultado.to_csv(index=False).encode("utf-8")
         st.download_button(
             label="⬇️ Descargar CSV (detalle)",
